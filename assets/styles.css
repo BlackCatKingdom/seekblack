@@ -279,3 +279,8 @@ body.page-leaving{opacity:.88;transform:translateY(-5px)}
 .case-live .case-live-secondary .project-link:focus-visible{color:#111;background:#fff;border-color:#fff}
 .case-live-action>small{margin-top:2px}
 @media(max-width:560px){.case-live-secondary{width:100%;gap:9px}.case-live .case-live-secondary .project-link{font-size:.73rem;padding:9px 12px}}
+
+
+/* CASE STUDY CARD SPACING HOTFIX · 20260830 */
+.case-dark .case-grid2{margin-top:32px;gap:24px}
+@media(max-width:800px){.case-dark .case-grid2{margin-top:24px;gap:16px}}
