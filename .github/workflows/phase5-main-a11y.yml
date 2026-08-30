@@ -1,0 +1,88 @@
+name: Phase 5 Main Accessibility Contrast
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase5-main-a11y.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch text-link contrast and cache version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          css=Path('assets/styles.css')
+          s=css.read_text(encoding='utf-8')
+          marker='/* Phase 5 main accessibility · 20260830 */'
+          if marker not in s:
+            s += '\n'+marker+'\n.work .live-link{color:#08766d!important}.work .live-link:hover{color:#066f67!important}\n'
+          css.write_text(s,encoding='utf-8')
+          p=Path('index.html')
+          t=p.read_text(encoding='utf-8').replace('styles.css?v=20260830-motion1','styles.css?v=20260830-phase5a11y')
+          p.write_text(t,encoding='utf-8')
+          PY
+
+      - name: Run local Lighthouse accessibility check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8080 --bind 127.0.0.1 >/tmp/main-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          sleep 1
+          mkdir -p /tmp/lh && cd /tmp/lh
+          npm init -y >/dev/null 2>&1
+          npm install --no-save lighthouse >/dev/null 2>&1
+          npx lighthouse http://127.0.0.1:8080/ --quiet \
+            --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage' \
+            --only-categories=accessibility,best-practices \
+            --output=json --output-path=/tmp/main-lighthouse.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/main-lighthouse.json'))
+          a=round(d['categories']['accessibility']['score']*100)
+          b=round(d['categories']['best-practices']['score']*100)
+          print(f'Accessibility={a} BestPractices={b}')
+          assert a >= 95, f'Accessibility below target: {a}'
+          PY
+
+      - name: Commit final main patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/phase5-main-a11y.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: improve main site live-link contrast'
+          git push origin main
+
+      - name: Build deploy package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/package/seekblack.cn/assets
+          cp index.html /tmp/package/seekblack.cn/index.html
+          cp assets/styles.css /tmp/package/seekblack.cn/assets/styles.css
+
+      - name: Upload deploy package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SEEKBLACK-Phase5-Main-A11y-Hotfix
+          path: /tmp/package/seekblack.cn
+          if-no-files-found: error
+          retention-days: 7
