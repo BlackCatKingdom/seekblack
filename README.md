@@ -53,9 +53,9 @@ seekblack.cn
 
 ## Related demo repositories
 
-- `north-architecture-demo`
-- `flow-mini-program-demo`
-- `motion-fitness-app-demo`
+- [NØRTH — Architecture Studio Demo](https://github.com/BlackCatKingdom/north-architecture-demo)
+- [FLOW — Mini Program Demo](https://github.com/BlackCatKingdom/flow-mini-program-demo)
+- [MOTION — Fitness App Demo](https://github.com/BlackCatKingdom/motion-fitness-app-demo)
 
 ## Note
 
