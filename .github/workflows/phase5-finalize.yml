@@ -1,0 +1,160 @@
+name: Phase 5 Finalize Report
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase5-finalize.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build compact Phase 5 report
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/phase5-report
+          mkdir -p /tmp/phase5-report
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, csv
+
+          root=Path('audit')
+          out=Path('/tmp/phase5-report')
+          lh=root/'lighthouse'
+          rows=[]
+          issues=[]
+          metrics_ids={
+            'first-contentful-paint':'FCP',
+            'largest-contentful-paint':'LCP',
+            'speed-index':'SI',
+            'total-blocking-time':'TBT',
+            'cumulative-layout-shift':'CLS',
+          }
+          for p in sorted(lh.glob('*.json')):
+            d=json.loads(p.read_text(encoding='utf-8'))
+            cats=d.get('categories',{})
+            audits=d.get('audits',{})
+            def sc(k):
+              v=cats.get(k,{}).get('score')
+              return None if v is None else round(v*100)
+            m={}
+            for aid,label in metrics_ids.items():
+              a=audits.get(aid,{})
+              m[label]=a.get('displayValue','')
+            row={
+              'name':p.stem,
+              'performance':sc('performance'),
+              'accessibility':sc('accessibility'),
+              'best_practices':sc('best-practices'),
+              'seo':sc('seo'),
+              **m,
+              'final_url':d.get('finalUrl',''),
+            }
+            rows.append(row)
+            for catid in ('accessibility','best-practices','seo'):
+              cat=cats.get(catid)
+              if not cat: continue
+              for ref in cat.get('auditRefs',[]):
+                if not ref.get('weight'): continue
+                a=audits.get(ref.get('id'),{})
+                score=a.get('score')
+                if score is not None and score < 1:
+                  issues.append({
+                    'page':p.stem,
+                    'category':catid,
+                    'id':ref.get('id'),
+                    'score':score,
+                    'title':a.get('title',''),
+                    'displayValue':a.get('displayValue',''),
+                  })
+          cols=['name','performance','accessibility','best_practices','seo','FCP','LCP','SI','TBT','CLS','final_url']
+          with (out/'lighthouse-summary.csv').open('w',newline='',encoding='utf-8-sig') as f:
+            w=csv.DictWriter(f,fieldnames=cols); w.writeheader(); w.writerows(rows)
+          (out/'lighthouse-summary.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2),encoding='utf-8')
+          (out/'lighthouse-actionable-issues.json').write_text(json.dumps(issues,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          browser=json.loads((root/'browser-audit.json').read_text(encoding='utf-8'))
+          probs=json.loads((root/'browser-problems.json').read_text(encoding='utf-8'))
+          browser_summary={
+            'total_scenarios':len(browser),
+            'engines':sorted(set(x.get('engine') for x in browser)),
+            'viewports':sorted(set(x.get('viewport') for x in browser)),
+            'pages':sorted(set(x.get('page') for x in browser)),
+            'problems':len(probs),
+            'horizontal_overflow':sum(bool(x.get('horizontalOverflow')) for x in browser),
+            'broken_images':sum(len(x.get('brokenImages') or []) for x in browser),
+            'console_errors':sum(len(x.get('consoleErrors') or []) for x in browser),
+            'page_errors':sum(len(x.get('pageErrors') or []) for x in browser),
+            'failed_requests':sum(len(x.get('failedRequests') or []) for x in browser),
+          }
+          (out/'browser-summary.json').write_text(json.dumps(browser_summary,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          for name in ('http.txt','security-summary.txt','seo-raw.txt'):
+            (out/name).write_text((root/name).read_text(encoding='utf-8',errors='replace'),encoding='utf-8')
+          tlsout=out/'tls'; tlsout.mkdir()
+          for p in (root/'tls').glob('*.txt'):
+            (tlsout/p.name).write_text(p.read_text(encoding='utf-8',errors='replace'),encoding='utf-8')
+          PY
+
+          {
+            echo '=== WWW CANONICAL ==='
+            curl -sS -L -o /dev/null -w 'https://www.seekblack.cn/ STATUS=%{http_code} FINAL=%{url_effective}\n' https://www.seekblack.cn/ || true
+            echo
+            echo '=== OG IMAGE ==='
+            curl -sS -L -D /tmp/phase5-report/og-headers.txt -o /tmp/phase5-report/og-seekblack.png https://seekblack.cn/assets/og-seekblack.png || true
+            file /tmp/phase5-report/og-seekblack.png || true
+            stat -c 'bytes=%s' /tmp/phase5-report/og-seekblack.png || true
+            echo
+            echo '=== CACHE HEADERS ==='
+            for u in https://seekblack.cn/assets/styles.css https://seekblack.cn/assets/site.js https://seekblack.cn/assets/og-seekblack.png; do
+              echo "[$u]"
+              curl -sSI "$u" | grep -Ei '^(HTTP/|content-type:|content-length:|cache-control:|etag:|last-modified:|content-encoding:)' || true
+              echo
+            done
+          } > /tmp/phase5-report/extra-http.txt
+
+          cat > /tmp/phase5-report/README.txt <<'EOF'
+          SEEKBLACK Phase 5 Final Engineering Audit
+          Generated: 2026-08-30
+
+          Scope:
+          - Main site + 3 Case Studies
+          - NØRTH / FLOW / FLOW Admin / MOTION live demos
+          - HTTP/HTTPS, TLS, true 404, robots/sitemap/noindex
+          - Chromium + WebKit at 390 / 768 / 1440 widths
+          - Lighthouse performance/accessibility/best-practices/SEO
+          - Security response headers
+          - OG image and static-asset cache headers
+
+          Note:
+          Playwright WebKit is a Safari-engine compatibility check, not a substitute for final testing in the actual Safari app on Apple hardware.
+          EOF
+
+      - name: Upload final Phase 5 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: SEEKBLACK-Phase5-Final-Report
+          path: /tmp/phase5-report
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean temporary audit files from public repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -rf audit .github/workflows/phase5-finalize.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: clean Phase 5 temporary audit files'
+          git push origin main
