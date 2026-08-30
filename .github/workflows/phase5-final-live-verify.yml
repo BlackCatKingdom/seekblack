@@ -1,0 +1,107 @@
+name: Phase 5 Final Live Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase5-final-live-verify.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify HTTP, security headers and real 404
+        shell: bash
+        run: |
+          set -euo pipefail
+          urls=(
+            'https://seekblack.cn/'
+            'https://north.seekblack.cn/'
+            'https://flow.seekblack.cn/'
+            'https://flow.seekblack.cn/admin/'
+            'https://motion.seekblack.cn/'
+          )
+          for url in "${urls[@]}"; do
+            echo "===== $url ====="
+            headers=$(curl -sSIL --max-time 20 "$url")
+            printf '%s\n' "$headers" | tail -n 40
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            test "$code" = '200'
+            for h in \
+              'strict-transport-security:' \
+              'content-security-policy:' \
+              'x-frame-options:' \
+              'x-content-type-options:' \
+              'referrer-policy:' \
+              'permissions-policy:'; do
+              printf '%s\n' "$headers" | tr '[:upper:]' '[:lower:]' | grep -q "^$h"
+            done
+          done
+
+          for host in seekblack.cn north.seekblack.cn flow.seekblack.cn motion.seekblack.cn; do
+            echo "===== HTTP redirect $host ====="
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "http://$host/")
+            case "$code" in 301|302|307|308) ;; *) echo "Bad HTTP redirect code: $code"; exit 1;; esac
+            loc=$(curl -sSI --max-time 20 "http://$host/" | awk 'BEGIN{IGNORECASE=1} /^location:/{print $2}' | tr -d '\r' | tail -1)
+            case "$loc" in https://*) ;; *) echo "Bad redirect location: $loc"; exit 1;; esac
+
+            echo "===== real 404 $host ====="
+            code404=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/__phase5_404_987654321__/" )
+            test "$code404" = '404'
+          done
+
+      - name: Verify CSP does not break live pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lh && cd /tmp/lh
+          npm init -y >/dev/null 2>&1
+          npm install --no-save lighthouse >/dev/null 2>&1
+          urls=(
+            'https://seekblack.cn/'
+            'https://north.seekblack.cn/'
+            'https://flow.seekblack.cn/'
+            'https://flow.seekblack.cn/admin/'
+            'https://motion.seekblack.cn/'
+          )
+          i=0
+          for url in "${urls[@]}"; do
+            i=$((i+1))
+            out="/tmp/lh-$i.json"
+            npx lighthouse "$url" --quiet \
+              --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage' \
+              --only-categories=best-practices \
+              --output=json --output-path="$out"
+            node - "$out" "$url" <<'NODE'
+          const fs=require('fs');
+          const [,,path,url]=process.argv;
+          const d=JSON.parse(fs.readFileSync(path,'utf8'));
+          const bp=Math.round(d.categories['best-practices'].score*100);
+          const consoleAudit=d.audits['errors-in-console'];
+          const https=d.audits['is-on-https'];
+          console.log(url, 'BestPractices='+bp, 'Console='+consoleAudit.score, 'HTTPS='+https.score);
+          if (bp < 95 || consoleAudit.score !== 1 || https.score !== 1) process.exit(1);
+          NODE
+          done
+
+      - name: Remove temporary verification workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/phase5-final-live-verify.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove Phase 5 verification workflow'
+          git push origin main
