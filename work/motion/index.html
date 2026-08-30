@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="case-page motion-page">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  
+  <meta property="og:title" content="MOTION 运动 App Case Study — SEEKBLACK">
+  <meta property="og:description" content="Independent Concept Project · 查看项目思路、信息架构与技术实现。">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://seekblack.cn/work/motion/">
+  <meta property="og:image" content="https://seekblack.cn/assets/og-seekblack.png">
+  <meta name="description" content="MOTION — SEEKBLACK 运动 App 概念项目 Case Study。"><meta name="theme-color" content="#0c0c0c">
+  <link rel="canonical" href="https://seekblack.cn/work/motion/"><link rel="icon" href="../../assets/favicon.svg"><link rel="stylesheet" href="../../assets/styles.css?v=20260830-motion1">
+  <title>MOTION 运动 App Case Study — SEEKBLACK</title>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<nav class="nav" aria-label="案例导航"><div class="wrap nav-inner"><a class="brand" href="../../"><span class="brand-dot"></span>SEEKBLACK <small>CASE STUDY 03</small></a><div class="nav-links"><a href="../../#work">全部案例</a><a href="../north/">下一案例</a><a href="../../#contact" class="nav-cta">开始项目 ↗</a></div><button class="menu-btn" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="mobile-menu">MENU</button></div></nav>
+<nav id="mobile-menu" class="mobile-menu" aria-label="移动导航" aria-hidden="true" inert><button class="mobile-close" type="button" aria-label="关闭菜单">CLOSE</button><a href="../../#work">全部案例</a><a href="../north/">NØRTH</a><a href="../../#contact">开始项目</a></nav>
+<header class="case-hero"><div class="wrap"><div class="case-kicker mono">CASE STUDY 03 / INDEPENDENT CONCEPT PROJECT</div><h1 class="case-title">MOTION<br><span>FITNESS</span><br>APP.</h1><div class="case-bottom"><p>训练计划与运动数据记录类 App 概念。通过首页状态、训练计划、数据统计和连续打卡，把“今天做什么”和“最近做得怎么样”放在同一套移动端体验里。</p><div class="case-meta"><div><small>Type</small><strong>Mobile App</strong></div><div><small>Focus</small><strong>Training + Data</strong></div><div><small>Demo</small><strong>Live · motion.seekblack.cn</strong></div></div></div></div></header>
+<main id="main">
+
+<section class="case-section"><div class="wrap"><div class="case-intro reveal"><div class="case-idx mono">01 / PRODUCT IDEA</div><div><h2 class="zh-phrases"><span>数据不是装饰，</span><span>要能推动</span><span>下一次行动。</span></h2><p>MOTION 不把数据统计做成一堆漂亮图表，而是围绕“下一次训练”组织信息。首页先告诉用户本周进度和下一计划，再让统计页承担复盘。</p></div></div><div class="facts reveal"><div class="fact"><small>Primary</small><strong>训练计划</strong></div><div class="fact"><small>Secondary</small><strong>数据记录</strong></div><div class="fact"><small>Habit</small><strong>连续打卡</strong></div><div class="fact"><small>Delivery</small><strong>Web App Demo</strong></div></div></div></section>
+<section class="case-section case-dark"><div class="wrap"><div class="case-showcase motion-showcase reveal"><div class="motion-copy"><h3 class="zh-phrases"><span>先告诉用户</span><span>今天该做什么。</span></h3><p>首页把训练任务、周完成率和连续记录放在一屏内。统计数字只保留与训练决策相关的部分，不让图表抢走行动入口。</p><div class="motion-cards"><div><small>THIS WEEK</small><strong>04</strong></div><div><small>ACTIVE</small><strong>86%</strong></div><div><small>PLAN</small><strong>12</strong></div><div><small>STREAK</small><strong>7D</strong></div></div></div><div class="motion-phone-wrap"><div class="motion-phone"><div class="screen"><div class="hello mono">GOOD MORNING</div><div class="m-title">Ready for<br>today?</div><div class="ring"></div><div class="m-list"><span></span><span></span><span></span></div></div></div></div></div></div></section>
+<section class="case-section"><div class="wrap"><div class="case-intro reveal"><div class="case-idx mono">02 / INFORMATION ARCHITECTURE</div><div><h2 class="zh-phrases"><span>五个核心区域，</span><span>覆盖训练前后。</span></h2><p>产品结构围绕训练生命周期组织：计划决定做什么，训练页记录过程，统计页负责复盘，个人中心维护目标与账户设置。</p></div></div><div class="flowline reveal"><div><b>01</b><strong>HOME</strong></div><div><b>02</b><strong>PLAN</strong></div><div><b>03</b><strong>TRAIN</strong></div><div><b>04</b><strong>STATS</strong></div><div><b>05</b><strong>PROFILE</strong></div></div><div class="case-grid2 reveal case-grid-spaced"><div class="case-panel"><h3>训练记录</h3><p>训练过程只保留组数、次数、动作进度、时长等关键状态，减少操作负担；完成后自动汇总到本周数据。</p><div class="wire"><span></span><span></span><span></span><span></span></div></div><div class="case-panel dark"><h3>统计层级</h3><p>先展示周完成率、连续训练和负荷趋势，再进入详细历史。概念重点是层级与反馈，不虚构具体算法能力。</p><div class="wire"><span></span><span></span><span></span><span></span></div></div></div></div></section>
+<section class="case-section case-paper"><div class="wrap system-grid reveal"><div><div class="case-idx mono">03 / IMPLEMENTATION BLUEPRINT</div><h2 class="zh-phrases"><span>移动端体验</span><span>与数据模型</span><span>一起定义。</span></h2></div><div><div class="stack"><span>Cross-platform Mobile</span><span>Auth</span><span>Training Model</span><span>Data Visualization</span><span>API</span><span>Cloud Deployment</span></div><p class="system-note">该案例用于展示 App 信息架构、移动端交互和数据层设计思路。正式项目会根据 iOS / Android 目标、上架要求、第三方服务与预算选择具体技术方案。</p></div></div></section>
+
+<section class="case-live"><div class="wrap"><div class="case-live-grid reveal"><div><div class="case-idx mono">04 / LIVE EXPERIENCE</div><h2 class="zh-phrases"><span>MOTION 已上线。</span><span>现在直接体验。</span></h2><p>训练计划、训练过程、完成反馈、数据统计与历史记录已经连成一条可操作的演示流程。完成训练后，周进度、连续训练和记录数据会随状态实时更新。</p></div><div class="case-live-action"><span class="case-live-status mono">● LIVE DEMO AVAILABLE</span><a class="btn btn-brand" href="https://motion.seekblack.cn/" target="_blank" rel="noopener">VISIT LIVE DEMO ↗</a><small>motion.seekblack.cn · interactive app demo</small></div></div></div></section>
+
+<section class="case-cta"><div class="wrap"><h2>NEED AN<br>APP?</h2><div class="case-cta-row"><p>如果已有 App 想法，但功能还没完全想清楚，可以先从核心用户、主要任务和第一版范围开始梳理。</p><a class="btn btn-dark" href="../../#contact">开始项目 ↗</a></div><div class="case-foot mono"><span>© <span data-year>2026</span> SEEKBLACK</span><span>MOTION / CASE STUDY</span></div></div></section>
+
+</main>
+<script src="../../assets/site.js?v=20260830-motion1" defer></script>
+</body></html>
