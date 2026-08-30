@@ -27,7 +27,7 @@ jobs:
       - name: Upload deploy package
         uses: actions/upload-artifact@v4
         with:
-          name: SEEKBLACK-Case-Live-Action-Hotfix
+          name: SEEKBLACK-Case-Live-Action-Hotfix-Final
           path: package/seekblack.cn
           if-no-files-found: error
           retention-days: 7
