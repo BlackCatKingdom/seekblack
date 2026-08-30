@@ -1,0 +1,33 @@
+name: Bump case action CSS cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bump-case-action-cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump Case Study stylesheet version
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in work/north/index.html work/flow/index.html work/motion/index.html; do
+            sed -i 's/styles.css?v=20260830-motion1/styles.css?v=20260830-caseaction1/g' "$f"
+          done
+      - name: Commit and self-clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/bump-case-action-cache.yml
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: bust Case Study stylesheet cache'
+          git push origin main
