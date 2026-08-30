@@ -284,3 +284,6 @@ body.page-leaving{opacity:.88;transform:translateY(-5px)}
 /* CASE STUDY CARD SPACING HOTFIX · 20260830 */
 .case-dark .case-grid2{margin-top:32px;gap:24px}
 @media(max-width:800px){.case-dark .case-grid2{margin-top:24px;gap:16px}}
+
+/* Phase 5 main accessibility · 20260830 */
+.work .live-link{color:#08766d!important}.work .live-link:hover{color:#066f67!important}
