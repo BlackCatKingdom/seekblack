@@ -1,0 +1,236 @@
+name: Phase 5 Final Engineering Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase5-final-audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    if: ${{ !contains(github.event.head_commit.message, '[skip phase5]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Network, redirect, TLS, robots, 404 and headers
+        shell: bash
+        run: |
+          set -u
+          mkdir -p audit/headers audit/tls
+          {
+            echo '=== HTTP / HTTPS ==='
+            for u in \
+              https://seekblack.cn/ \
+              https://seekblack.cn/work/north/ \
+              https://seekblack.cn/work/flow/ \
+              https://seekblack.cn/work/motion/ \
+              https://north.seekblack.cn/ \
+              https://flow.seekblack.cn/ \
+              https://flow.seekblack.cn/admin/ \
+              https://motion.seekblack.cn/; do
+              curl -sS -L -o /dev/null -w "$u STATUS=%{http_code} FINAL=%{url_effective} TIME=%{time_total}s SIZE=%{size_download}\n" "$u" || true
+            done
+            echo
+            echo '=== HTTP -> HTTPS redirect ==='
+            for h in seekblack.cn north.seekblack.cn flow.seekblack.cn motion.seekblack.cn; do
+              curl -sS -L -o /dev/null -w "$h STATUS=%{http_code} FINAL=%{url_effective}\n" "http://$h/" || true
+            done
+            echo
+            echo '=== True 404 ==='
+            for h in seekblack.cn north.seekblack.cn flow.seekblack.cn motion.seekblack.cn; do
+              curl -sS -o /dev/null -w "$h STATUS=%{http_code}\n" "https://$h/__phase5_404_test_987654321__/" || true
+            done
+          } | tee audit/http.txt
+
+          for h in seekblack.cn north.seekblack.cn flow.seekblack.cn motion.seekblack.cn; do
+            curl -sS -D "audit/headers/${h}.txt" -o /dev/null "https://$h/" || true
+            timeout 12 openssl s_client -servername "$h" -connect "$h:443" </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates > "audit/tls/${h}.txt" || true
+          done
+
+          {
+            echo '=== robots.txt ==='
+            curl -sS https://seekblack.cn/robots.txt || true
+            echo
+            echo '=== sitemap.xml ==='
+            curl -sS https://seekblack.cn/sitemap.xml || true
+            echo
+            echo '=== demo noindex ==='
+            for h in north.seekblack.cn flow.seekblack.cn motion.seekblack.cn; do
+              printf '%s: ' "$h"
+              curl -sS "https://$h/" | tr '\n' ' ' | grep -o -i '<meta[^>]*name=["'\'' ]*robots["'\'' ]*[^>]*>' | head -1 || true
+              echo
+            done
+          } > audit/seo-raw.txt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          wanted = [
+            'strict-transport-security',
+            'content-security-policy',
+            'x-frame-options',
+            'x-content-type-options',
+            'referrer-policy',
+            'permissions-policy',
+          ]
+          lines=[]
+          for p in sorted(Path('audit/headers').glob('*.txt')):
+            raw=p.read_text(errors='ignore').splitlines()
+            headers={}
+            for line in raw:
+              if ':' in line:
+                k,v=line.split(':',1)
+                headers[k.strip().lower()]=v.strip()
+            lines.append(f'[{p.stem}]')
+            for k in wanted:
+              lines.append(f'{k}: {headers.get(k,"MISSING")}')
+            lines.append(f'server: {headers.get("server","(not disclosed)")}')
+            lines.append('')
+          Path('audit/security-summary.txt').write_text('\n'.join(lines),encoding='utf-8')
+          PY
+
+      - name: Install Playwright and Lighthouse
+        shell: bash
+        run: |
+          set -e
+          mkdir -p /tmp/phase5
+          cd /tmp/phase5
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright lighthouse >/dev/null 2>&1
+          npx playwright install --with-deps chromium webkit >/dev/null
+
+      - name: Responsive and browser-engine audit
+        shell: bash
+        run: |
+          cat > /tmp/phase5/browser-audit.mjs <<'JS'
+          import { chromium, webkit } from 'playwright';
+          import fs from 'node:fs';
+
+          const pages = [
+            ['main','https://seekblack.cn/'],
+            ['case-north','https://seekblack.cn/work/north/'],
+            ['case-flow','https://seekblack.cn/work/flow/'],
+            ['case-motion','https://seekblack.cn/work/motion/'],
+            ['north','https://north.seekblack.cn/'],
+            ['flow','https://flow.seekblack.cn/'],
+            ['flow-admin','https://flow.seekblack.cn/admin/'],
+            ['motion','https://motion.seekblack.cn/'],
+          ];
+          const viewports = [
+            ['mobile',390,844],
+            ['tablet',768,1024],
+            ['desktop',1440,1000],
+          ];
+          const engines = [['chromium',chromium],['webkit',webkit]];
+          const out=[];
+          for (const [engineName, engine] of engines) {
+            const browser = await engine.launch({headless:true});
+            for (const [pageName,url] of pages) {
+              for (const [vp,w,h] of viewports) {
+                const context = await browser.newContext({viewport:{width:w,height:h}});
+                const page = await context.newPage();
+                const consoleErrors=[]; const pageErrors=[]; const failed=[];
+                page.on('console',m=>{ if(m.type()==='error') consoleErrors.push(m.text()); });
+                page.on('pageerror',e=>pageErrors.push(String(e)));
+                page.on('requestfailed',r=>failed.push(`${r.method()} ${r.url()} :: ${r.failure()?.errorText||''}`));
+                let status=null, navError=null;
+                try {
+                  const resp=await page.goto(url,{waitUntil:'networkidle',timeout:35000});
+                  status=resp?.status() ?? null;
+                  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+                  await page.waitForTimeout(300);
+                } catch(e) { navError=String(e); }
+                const dom = navError ? {} : await page.evaluate(() => {
+                  const de=document.documentElement;
+                  const broken=[...document.images].filter(i=>i.complete && i.naturalWidth===0).map(i=>i.currentSrc||i.src);
+                  const noAlt=[...document.images].filter(i=>!i.hasAttribute('alt')).map(i=>i.currentSrc||i.src);
+                  const h1=document.querySelectorAll('h1').length;
+                  const source=[...document.querySelectorAll('a')].filter(a=>/GitHub|VIEW SOURCE|查看源码/i.test(a.textContent||'')).map(a=>({text:a.textContent.trim(),href:a.href}));
+                  return {
+                    clientWidth:de.clientWidth,
+                    scrollWidth:de.scrollWidth,
+                    horizontalOverflow:de.scrollWidth > de.clientWidth + 2,
+                    brokenImages:broken,
+                    imagesWithoutAlt:noAlt,
+                    h1Count:h1,
+                    sourceLinks:source,
+                    title:document.title,
+                  };
+                });
+                out.push({engine:engineName,page:pageName,url,viewport:vp,width:w,height:h,status,navError,...dom,consoleErrors,pageErrors,failedRequests:failed});
+                await context.close();
+              }
+            }
+            await browser.close();
+          }
+          fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/audit/browser-audit.json`,JSON.stringify(out,null,2));
+          const problems=out.filter(x=>x.navError||x.status>=400||x.horizontalOverflow||x.brokenImages?.length||x.consoleErrors?.length||x.pageErrors?.length||x.failedRequests?.length);
+          fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/audit/browser-problems.json`,JSON.stringify(problems,null,2));
+          JS
+          cd /tmp/phase5
+          node browser-audit.mjs
+
+      - name: Lighthouse audits
+        shell: bash
+        run: |
+          set +e
+          cd /tmp/phase5
+          mkdir -p "$GITHUB_WORKSPACE/audit/lighthouse"
+          run_lh(){
+            name="$1"; url="$2"; preset="$3"; cats="$4"
+            args=("$url" --quiet --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" --output=json --output-path="$GITHUB_WORKSPACE/audit/lighthouse/${name}.json" --only-categories="$cats")
+            if [ "$preset" = desktop ]; then args+=(--preset=desktop); fi
+            npx lighthouse "${args[@]}" || true
+          }
+          run_lh seekblack-mobile https://seekblack.cn/ mobile performance,accessibility,best-practices,seo
+          run_lh seekblack-desktop https://seekblack.cn/ desktop performance,accessibility,best-practices,seo
+          run_lh case-north-mobile https://seekblack.cn/work/north/ mobile performance,accessibility,best-practices,seo
+          run_lh case-flow-mobile https://seekblack.cn/work/flow/ mobile performance,accessibility,best-practices,seo
+          run_lh case-motion-mobile https://seekblack.cn/work/motion/ mobile performance,accessibility,best-practices,seo
+          run_lh north-demo-mobile https://north.seekblack.cn/ mobile performance,accessibility,best-practices
+          run_lh flow-demo-mobile https://flow.seekblack.cn/ mobile performance,accessibility,best-practices
+          run_lh motion-demo-mobile https://motion.seekblack.cn/ mobile performance,accessibility,best-practices
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[]
+          for p in sorted(Path('audit/lighthouse').glob('*.json')):
+            try:
+              d=json.loads(p.read_text())
+              cats=d.get('categories',{})
+              def score(k):
+                v=cats.get(k,{}).get('score')
+                return '' if v is None else round(v*100)
+              rows.append([p.stem,score('performance'),score('accessibility'),score('best-practices'),score('seo'),d.get('finalUrl','')])
+            except Exception as e:
+              rows.append([p.stem,'ERROR','','','',str(e)])
+          text=['name,performance,accessibility,best_practices,seo,final_url']
+          text += [','.join(map(str,r)) for r in rows]
+          Path('audit/lighthouse-summary.csv').write_text('\n'.join(text),encoding='utf-8')
+          PY
+
+      - name: Package audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: SEEKBLACK-Phase5-Final-Audit
+          path: audit
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove one-time workflow
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -f .github/workflows/phase5-final-audit.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          git commit -m 'chore: remove Phase 5 audit workflow [skip phase5]' && git push origin main
