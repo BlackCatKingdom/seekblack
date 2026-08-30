@@ -269,3 +269,13 @@ body.page-leaving{opacity:.88;transform:translateY(-5px)}
   .case-showcase{transition:none}
   .project:hover .project-visual>*{transform:none}
 }
+
+
+/* CASE LIVE ACTION HOTFIX · 20260830 */
+.case-live-action{gap:16px}
+.case-live-secondary{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px}
+.case-live .case-live-secondary .project-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 13px;border:1px solid rgba(255,255,255,.24);border-radius:999px;color:#fff;background:transparent;font-size:.76rem;line-height:1;white-space:nowrap;transition:transform .22s var(--ease),background .22s ease,color .22s ease,border-color .22s ease}
+.case-live .case-live-secondary .project-link:hover{color:#111;background:#fff;border-color:#fff;transform:translateY(-1px)}
+.case-live .case-live-secondary .project-link:focus-visible{color:#111;background:#fff;border-color:#fff}
+.case-live-action>small{margin-top:2px}
+@media(max-width:560px){.case-live-secondary{width:100%;gap:9px}.case-live .case-live-secondary .project-link{font-size:.73rem;padding:9px 12px}}
