@@ -1,0 +1,12 @@
+HTTP/2 200 
+server: nginx
+date: Sun, 30 Aug 2026 11:30:07 GMT
+content-type: text/html
+content-length: 1678
+last-modified: Sun, 30 Aug 2026 02:45:15 GMT
+vary: Accept-Encoding
+etag: "6a93993b-68e"
+strict-transport-security: max-age=31536000
+alt-svc: quic=":443"; h3=":443"; h3-29=":443"; h3-27=":443";h3-25=":443"; h3-T050=":443"; h3-Q050=":443";h3-Q049=":443";h3-Q048=":443"; h3-Q046=":443"; h3-Q043=":443"
+accept-ranges: bytes
+
